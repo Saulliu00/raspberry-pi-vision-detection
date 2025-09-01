@@ -38,17 +38,25 @@ class ConfigManager:
     def create_default_config(self):
         """Create default configuration file."""
         self.config['CAMERA'] = {
-            'width': '640',
-            'height': '480',
+            'width': 'auto',  # 'auto' for native resolution, or specific width
+            'height': 'auto',  # 'auto' for native resolution, or specific height
             'timeout': '3000',
-            'method': 'rpicam'  # or 'opencv'
+            'method': 'rpicam',  # or 'opencv'
+            'timezone': 'auto',   # 'auto' for system detection, or specific timezone
+            'pictures_directory': 'pictures',
+            'save_to_pictures': 'true',
+            'use_full_resolution': 'true',  # Use camera's native resolution for best quality
+            'rotation_degrees': '180'  # Rotate image (0, 90, 180, 270 degrees)
         }
         
         self.config['DETECTION'] = {
             'method': 'contour',  # 'yolo', 'haar', 'contour'
             'confidence_threshold': '0.5',
             'nms_threshold': '0.4',
-            'min_area': '500'
+            'min_area': '500',
+            'resize_for_detection': 'false',  # Resize image for detection performance
+            'detection_width': '640',  # Width to resize to for detection (if enabled)
+            'detection_height': '480'  # Height to resize to for detection (if enabled)
         }
         
         self.config['OUTPUT'] = {

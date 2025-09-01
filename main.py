@@ -1,4 +1,28 @@
-#!/usr/bin/env python3
+def __init__(self, config_file: str = "vision_config.ini"):
+        """Initialize the vision system."""
+        self.config = ConfigManager(config_file)
+        self.file_manager = FileManager(self.config.get('OUTPUT', 'output_directory', './output'))
+        self.performance_monitor = PerformanceMonitor()
+        
+        # Initialize camera with auto-detection and full resolution support
+        camera_width = self.config.get('CAMERA', 'width')
+        camera_height = self.config.get('CAMERA', 'height') 
+        camera_timezone = self.config.get('CAMERA', 'timezone')
+        pictures_dir = self.config.get('CAMERA', 'pictures_directory', 'pictures')
+        use_full_resolution = self.config.getboolean('CAMERA', 'use_full_resolution', True)
+        
+        # Convert 'auto' or None values to actual None for auto-detection
+        if camera_width and camera_width.lower() != 'auto':
+            camera_width = int(camera_width)
+        else:
+            camera_width = None
+            
+        if camera_height and camera_height.lower() != 'auto':
+            camera_height = int(camera_height)
+        else:
+            camera_height = None
+            
+        if camera_timezone and camera_timezone#!/usr/bin/env python3
 """
 Main vision detection system for Raspberry Pi 5.
 Integrates camera, object detection, and utility modules.
@@ -34,17 +58,44 @@ class VisionSystem:
         self.file_manager = FileManager(self.config.get('OUTPUT', 'output_directory', './output'))
         self.performance_monitor = PerformanceMonitor()
         
-        # Initialize camera
-        camera_width = self.config.getint('CAMERA', 'width', 640)
-        camera_height = self.config.getint('CAMERA', 'height', 480)
-        self.camera = RaspberryPiCamera(width=camera_width, height=camera_height)
+        # Initialize camera with auto-detection and full resolution support
+        camera_width = self.config.get('CAMERA', 'width')
+        camera_height = self.config.get('CAMERA', 'height') 
+        camera_timezone = self.config.get('CAMERA', 'timezone')
+        pictures_dir = self.config.get('CAMERA', 'pictures_directory', 'pictures')
+        use_full_resolution = self.config.getboolean('CAMERA', 'use_full_resolution', True)
+        
+        # Convert 'auto' or None values to actual None for auto-detection
+        if camera_width and camera_width.lower() != 'auto':
+            camera_width = int(camera_width)
+        else:
+            camera_width = None
+            
+        if camera_height and camera_height.lower() != 'auto':
+            camera_height = int(camera_height)
+        else:
+            camera_height = None
+            
+        if camera_timezone and camera_timezone.lower() != 'auto':
+            pass  # Use the specified timezone
+        else:
+            camera_timezone = None  # Auto-detect
+        
+        self.camera = RaspberryPiCamera(
+            width=camera_width, 
+            height=camera_height,
+            timezone=camera_timezone,
+            base_picture_dir=pictures_dir
+        )
+        
+        self.use_full_resolution = use_full_resolution
         
         # Initialize detector
         self.detector = ObjectDetector()
         self.setup_detector()
         
         self.running = False
-        logger.info("Vision system initialized")
+        logger.info(f"Vision system initialized - Resolution: {self.camera.width}x{self.camera.height}, Full res mode: {use_full_resolution}")
     
     def setup_detector(self):
         """Setup the object detector based on configuration."""
@@ -75,11 +126,21 @@ class VisionSystem:
             self.performance_monitor.start_timer("image_capture")
             camera_method = self.config.get('CAMERA', 'method', 'rpicam')
             camera_timeout = self.config.getint('CAMERA', 'timeout', 3000)
+            save_pictures = self.config.getboolean('CAMERA', 'save_to_pictures', True)
             
             if camera_method == 'rpicam':
-                image = self.camera.capture_image_rpicam(timeout=camera_timeout)
+                image = self.camera.capture_image_rpicam(
+                    timeout=camera_timeout,
+                    save_to_pictures=save_pictures,
+                    prefix="detection",
+                    use_full_resolution=self.use_full_resolution
+                )
             else:
-                image = self.camera.capture_image_opencv()
+                image = self.camera.capture_image_opencv(
+                    save_to_pictures=save_pictures,
+                    prefix="detection_opencv",
+                    use_full_resolution=self.use_full_resolution
+                )
             
             self.performance_monitor.end_timer("image_capture")
             
@@ -89,7 +150,8 @@ class VisionSystem:
             
             # Preprocess image
             self.performance_monitor.start_timer("preprocessing")
-            processed_image = self.camera.preprocess_image(image)
+            rotation_degrees = self.config.getint('CAMERA', 'rotation_degrees', 180)
+            processed_image = self.camera.preprocess_image(image, rotate_degrees=rotation_degrees)
             self.performance_monitor.end_timer("preprocessing")
             
             # Perform detection
@@ -133,16 +195,26 @@ class VisionSystem:
         """Perform object detection based on configured method."""
         detection_method = self.config.get('DETECTION', 'method', 'contour')
         
+        # Resize image for detection if specified (to improve performance while keeping original quality)
+        detection_image = image
+        resize_for_detection = self.config.getboolean('DETECTION', 'resize_for_detection', False)
+        detection_width = self.config.getint('DETECTION', 'detection_width', 640)
+        detection_height = self.config.getint('DETECTION', 'detection_height', 480)
+        
+        if resize_for_detection and (image.shape[1] > detection_width or image.shape[0] > detection_height):
+            logger.info(f"Resizing image for detection: {image.shape[1]}x{image.shape[0]} -> {detection_width}x{detection_height}")
+            detection_image = self.camera.resize_image(image, (detection_width, detection_height))
+        
         if detection_method == 'yolo':
             confidence_threshold = float(self.config.get('DETECTION', 'confidence_threshold', '0.5'))
             nms_threshold = float(self.config.get('DETECTION', 'nms_threshold', '0.4'))
-            return self.detector.detect_objects_yolo(
-                image, confidence_threshold, nms_threshold
+            detections = self.detector.detect_objects_yolo(
+                detection_image, confidence_threshold, nms_threshold
             )
         
         elif detection_method == 'haar':
             cascade_name = self.config.get('DETECTION', 'haar_cascade', 'frontalface_default')
-            return self.detector.detect_objects_haar(image, cascade_name)
+            detections = self.detector.detect_objects_haar(detection_image, cascade_name)
         
         else:  # contour detection
             # Get color range from config or use default red
@@ -159,7 +231,27 @@ class VisionSystem:
                 color_range = {'lower': lower, 'upper': upper}
             
             min_area = self.config.getint('DETECTION', 'min_area', 500)
-            return self.detector.detect_objects_contour(image, color_range, min_area)
+            detections = self.detector.detect_objects_contour(detection_image, color_range, min_area)
+        
+        # Scale detection coordinates back to original image size if we resized
+        if resize_for_detection and len(detections) > 0:
+            scale_x = image.shape[1] / detection_image.shape[1]
+            scale_y = image.shape[0] / detection_image.shape[0]
+            
+            for detection in detections:
+                x, y, w, h = detection['bbox']
+                detection['bbox'] = (
+                    int(x * scale_x),
+                    int(y * scale_y),
+                    int(w * scale_x),
+                    int(h * scale_y)
+                )
+                detection['center'] = (
+                    int(detection['center'][0] * scale_x),
+                    int(detection['center'][1] * scale_y)
+                )
+        
+        return detections
     
     def run_continuous(self, interval: float = 1.0):
         """Run continuous detection loop."""
@@ -203,7 +295,8 @@ class VisionSystem:
         print(f"Timestamp: {time.ctime(results['timestamp'])}")
         print(f"Objects detected: {results['detection_count']}")
         print(f"Processing time: {results['processing_time']:.3f}s")
-        print(f"Image size: {results['image_shape']}")
+        print(f"Image size: {results['image_shape'][1]}x{results['image_shape'][0]} pixels")
+        print(f"Full resolution mode: {'Enabled' if hasattr(self, 'use_full_resolution') and self.use_full_resolution else 'Disabled'}")
         
         if results['detections']:
             print("\nDetected objects:")
@@ -266,6 +359,19 @@ def main():
                        choices=['red', 'green', 'blue', 'yellow', 'orange'],
                        help='Target color for contour detection')
     
+    parser.add_argument('--resolution',
+                       choices=['auto', 'full', '1080p', '720p', '480p'],
+                       help='Override camera resolution (auto=detect, full=native, 1080p, 720p, 480p)')
+    
+    parser.add_argument('--rotation',
+                       type=int,
+                       choices=[0, 90, 180, 270],
+                       help='Rotate captured images (0, 90, 180, 270 degrees)')
+    
+    parser.add_argument('--resize-detection', 
+                       action='store_true',
+                       help='Resize images for detection performance (keeps original quality for saving)')
+    
     parser.add_argument('--verbose', '-v',
                        action='store_true',
                        help='Enable verbose logging')
@@ -291,6 +397,30 @@ def main():
         
         if args.color:
             vision_system.config.set('DETECTION', 'target_color', args.color)
+        
+        if args.resolution:
+            if args.resolution == 'auto' or args.resolution == 'full':
+                vision_system.config.set('CAMERA', 'width', 'auto')
+                vision_system.config.set('CAMERA', 'height', 'auto')
+                vision_system.config.set('CAMERA', 'use_full_resolution', 'true')
+            elif args.resolution == '1080p':
+                vision_system.config.set('CAMERA', 'width', '1920')
+                vision_system.config.set('CAMERA', 'height', '1080')
+                vision_system.config.set('CAMERA', 'use_full_resolution', 'false')
+            elif args.resolution == '720p':
+                vision_system.config.set('CAMERA', 'width', '1280')
+                vision_system.config.set('CAMERA', 'height', '720')
+                vision_system.config.set('CAMERA', 'use_full_resolution', 'false')
+            elif args.resolution == '480p':
+                vision_system.config.set('CAMERA', 'width', '640')
+                vision_system.config.set('CAMERA', 'height', '480')
+                vision_system.config.set('CAMERA', 'use_full_resolution', 'false')
+        
+        if args.resize_detection:
+            vision_system.config.set('DETECTION', 'resize_for_detection', 'true')
+        
+        if args.rotation is not None:
+            vision_system.config.set('CAMERA', 'rotation_degrees', str(args.rotation))
         
         # Run detection
         if args.mode == 'continuous':

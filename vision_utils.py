@@ -645,6 +645,8 @@ def test_vision_utils():
     print(f"✓ Total detections logged: {stats.get('total_detections', 0)}")
     print(f"✓ Total objects found: {stats.get('total_objects_found', 0)}")
     print(f"✓ Average processing time: {stats.get('average_processing_time', 0):.3f}s")
+    print(f"✓ Average confidence score: {stats.get('average_confidence_score', 0):.3f}")
+    print(f"✓ Most common object: {stats.get('most_common_object', 'N/A')}")
     
     # Test FileManager
     print("\n3. Testing FileManager...")

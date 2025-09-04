@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # Setup script for Raspberry Pi 5 Vision Detection System
+# Updated for parts defect detection with CSV data logging
 # Run with: chmod +x setup.sh && ./setup.sh
 
-echo "Setting up Raspberry Pi 5 Vision Detection System..."
+echo "Setting up Raspberry Pi 5 Vision Detection System for Parts Defect Detection..."
 
 # Color codes for output
 RED='\033[0;31m'
@@ -96,9 +97,11 @@ else
     print_error "rpicam-still not found. Install with: sudo apt install libcamera-apps"
 fi
 
-# Create output directory
-print_status "Creating output directory..."
+# Create necessary directories
+print_status "Creating project directories..."
 mkdir -p output
+mkdir -p pictures
+print_status "Created output and pictures directories"
 
 # Make Python scripts executable
 print_status "Making scripts executable..."
@@ -106,35 +109,52 @@ chmod +x camera_module.py
 chmod +x object_detection.py
 chmod +x vision_utils.py
 chmod +x main.py
+chmod +x example_usage.py
 
 # Create desktop shortcut (optional)
 print_status "Creating desktop shortcuts..."
 DESKTOP_DIR="$HOME/Desktop"
 if [ -d "$DESKTOP_DIR" ]; then
-    cat > "$DESKTOP_DIR/Vision_System.desktop" << EOF
+    # Main application shortcut
+    cat > "$DESKTOP_DIR/Vision_Defect_Detection.desktop" << EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Vision Detection System
-Comment=Raspberry Pi Vision Detection
+Name=Parts Defect Detection
+Comment=Raspberry Pi Vision Detection for Parts Defect Detection
 Exec=$(pwd)/vision_env/bin/python $(pwd)/main.py
 Icon=camera-photo
 Terminal=true
 Categories=Development;
 EOF
-    chmod +x "$DESKTOP_DIR/Vision_System.desktop"
-    print_status "Desktop shortcut created"
+    chmod +x "$DESKTOP_DIR/Vision_Defect_Detection.desktop"
+    
+    # CSV Statistics shortcut
+    cat > "$DESKTOP_DIR/Detection_Statistics.desktop" << EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Detection Statistics
+Comment=View CSV Detection Statistics
+Exec=$(pwd)/vision_env/bin/python $(pwd)/main.py --mode stats
+Icon=applications-office
+Terminal=true
+Categories=Development;
+EOF
+    chmod +x "$DESKTOP_DIR/Detection_Statistics.desktop"
+    
+    print_status "Desktop shortcuts created"
 fi
 
 # Create systemd service (optional)
-read -p "Do you want to create a systemd service for auto-start? (y/n): " -n 1 -r
+read -p "Do you want to create a systemd service for continuous inspection? (y/n): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     print_status "Creating systemd service..."
     
-    sudo tee /etc/systemd/system/vision-detection.service > /dev/null << EOF
+    sudo tee /etc/systemd/system/parts-inspection.service > /dev/null << EOF
 [Unit]
-Description=Raspberry Pi Vision Detection System
+Description=Parts Defect Detection System
 After=multi-user.target
 
 [Service]
@@ -143,7 +163,7 @@ Restart=always
 RestartSec=1
 User=pi
 WorkingDirectory=$(pwd)
-ExecStart=$(pwd)/vision_env/bin/python $(pwd)/main.py --mode continuous --interval 2
+ExecStart=$(pwd)/vision_env/bin/python $(pwd)/main.py --mode continuous --interval 3
 StandardOutput=journal
 StandardError=journal
 
@@ -152,10 +172,10 @@ WantedBy=multi-user.target
 EOF
     
     sudo systemctl daemon-reload
-    sudo systemctl enable vision-detection.service
+    sudo systemctl enable parts-inspection.service
     print_status "Systemd service created and enabled"
-    print_status "Use 'sudo systemctl start vision-detection' to start the service"
-    print_status "Use 'sudo systemctl status vision-detection' to check status"
+    print_status "Use 'sudo systemctl start parts-inspection' to start continuous inspection"
+    print_status "Use 'sudo systemctl status parts-inspection' to check status"
 fi
 
 # Run initial tests
@@ -167,7 +187,7 @@ python3 camera_module.py
 echo "Testing object detection module..."
 python3 object_detection.py
 
-echo "Testing vision utils module..."
+echo "Testing vision utils and CSV logging..."
 python3 vision_utils.py
 
 # Performance optimization for Raspberry Pi
@@ -185,92 +205,185 @@ if ! grep -q "camera_auto_detect=1" /boot/config.txt; then
     print_status "Camera auto-detect enabled"
 fi
 
-# Create usage guide
-print_status "Creating usage guide..."
+# Create usage guide for parts defect detection
+print_status "Creating parts defect detection usage guide..."
 cat > USAGE.md << EOF
-# Raspberry Pi 5 Vision Detection System - Usage Guide
+# Raspberry Pi 5 Parts Defect Detection System - Usage Guide
 
-## Quick Start
+## Quick Start for Parts Inspection
 
 1. Activate the virtual environment:
    \`\`\`bash
    source vision_env/bin/activate
    \`\`\`
 
-2. Run single detection:
+2. Single part inspection:
    \`\`\`bash
    python3 main.py --mode single
    \`\`\`
 
-3. Run continuous detection:
+3. Continuous parts inspection:
    \`\`\`bash
-   python3 main.py --mode continuous --interval 2
+   python3 main.py --mode continuous --interval 3
    \`\`\`
 
-## Testing Individual Modules
-
-- Test camera: \`python3 camera_module.py\`
-- Test detection: \`python3 object_detection.py\`
-- Test utilities: \`python3 vision_utils.py\`
-
-## Command Line Options
-
-- \`--config CONFIG_FILE\`: Specify configuration file
-- \`--mode {single,continuous}\`: Detection mode
-- \`--interval SECONDS\`: Detection interval for continuous mode
-- \`--method {yolo,haar,contour}\`: Detection method
-- \`--color {red,green,blue,yellow,orange}\`: Target color for contour detection
-- \`--verbose\`: Enable verbose logging
-
-## Configuration
-
-Edit \`vision_config.ini\` to customize:
-- Camera settings (resolution, timeout)
-- Detection parameters (method, thresholds)
-- Output settings (save images, directory)
-- Color ranges for contour detection
-
-## Examples
-
-1. Detect red objects continuously every 3 seconds:
+4. View detection statistics:
    \`\`\`bash
-   python3 main.py --mode continuous --interval 3 --method contour --color red
+   python3 main.py --mode stats
    \`\`\`
 
-2. Single detection with YOLO:
+5. View recent inspection logs:
    \`\`\`bash
-   python3 main.py --mode single --method yolo
+   python3 main.py --mode logs
    \`\`\`
 
-3. Face detection with Haar cascades:
-   \`\`\`bash
-   python3 main.py --mode single --method haar
-   \`\`\`
+## Detection Methods for Parts Inspection
+
+### YOLO Detection (Recommended for General Defects)
+\`\`\`bash
+python3 main.py --mode single --method yolo
+\`\`\`
+- **Best for**: Complex defects, multiple object types
+- **Accuracy**: High (can detect various defect types)
+- **Speed**: Moderate (requires more processing)
+
+### Haar Cascade Detection (Good for Specific Patterns)
+\`\`\`bash
+python3 main.py --mode single --method haar
+\`\`\`
+- **Best for**: Specific geometric defects, patterns
+- **Accuracy**: Good for trained patterns
+- **Speed**: Fast
+
+## CSV Data Logging
+
+All inspections are automatically logged to CSV with:
+- Date and time of inspection
+- Capture filename
+- Number of defects detected
+- Detailed object information
+- Processing time
+- Image resolution
+- Detection method used
+
+### Custom CSV File
+\`\`\`bash
+python3 main.py --mode continuous --csv-file production_log.csv
+\`\`\`
+
+### Disable CSV Logging (for testing)
+\`\`\`bash
+python3 main.py --mode single --disable-csv
+\`\`\`
+
+## Performance Optimization
+
+### High Quality Mode (Default)
+- Full resolution capture (up to 12MP)
+- YOLO detection
+- Complete CSV logging
+\`\`\`bash
+python3 main.py --mode single
+\`\`\`
+
+### High Speed Mode
+- Resized detection for performance
+- Full resolution storage
+\`\`\`bash
+python3 main.py --mode continuous --resize-detection --interval 1
+\`\`\`
+
+### Production Line Mode
+- Continuous inspection
+- Optimized intervals
+- Comprehensive logging
+\`\`\`bash
+python3 main.py --mode continuous --interval 2 --resize-detection
+\`\`\`
+
+## Quality Analysis
+
+### View Detection Statistics
+Shows overall quality metrics:
+- Total inspections performed
+- Total defects found
+- Defect rate percentage
+- Average processing time
+- Most common defect types
+
+### Export Data for Analysis
+The CSV files can be opened in Excel, imported into databases, or processed with Python/R for advanced quality analysis.
+
+## Configuration for Parts Inspection
+
+Edit \`vision_config.ini\`:
+
+\`\`\`ini
+[DETECTION]
+method = yolo                    # or haar
+confidence_threshold = 0.4       # Lower = more sensitive
+resize_for_detection = true      # For better performance
+
+[CSV_LOGGING]
+enabled = true
+csv_file = parts_inspection.csv
+cleanup_days = 30               # Keep 30 days of logs
+
+[CAMERA]
+use_full_resolution = true      # Best quality
+rotation_degrees = 180          # Adjust for mounting
+\`\`\`
 
 ## Troubleshooting
 
-- Camera not working: Check \`rpicam-still --list-cameras\`
-- Permission errors: Make sure scripts are executable
-- Package issues: Reinstall with \`pip install -r requirements.txt\`
-- Low performance: Reduce image resolution in config
+### Camera Issues
+\`\`\`bash
+rpicam-still --list-cameras
+python3 camera_module.py
+\`\`\`
+
+### Detection Issues  
+\`\`\`bash
+python3 object_detection.py
+\`\`\`
+
+### CSV Issues
+\`\`\`bash
+python3 vision_utils.py
+head -n 5 detection_log.csv
+\`\`\`
+
+### Performance Issues
+- Enable \`resize_for_detection\` in config
+- Reduce confidence threshold
+- Use Haar cascades for speed
+- Monitor disk space for images/logs
 
 ## Service Management (if installed)
 
-- Start: \`sudo systemctl start vision-detection\`
-- Stop: \`sudo systemctl stop vision-detection\`
-- Status: \`sudo systemctl status vision-detection\`
-- Logs: \`journalctl -u vision-detection -f\`
+- Start: \`sudo systemctl start parts-inspection\`
+- Stop: \`sudo systemctl stop parts-inspection\`
+- Status: \`sudo systemctl status parts-inspection\`
+- Logs: \`journalctl -u parts-inspection -f\`
+
+## Integration with Quality Management Systems
+
+The CSV output is designed for easy integration:
+- Import into quality databases
+- Generate reports with Excel/Power BI
+- Set up automated alerts based on defect rates
+- Track trends over time for process improvement
 EOF
 
-# Create maintenance script
+# Create maintenance script for parts inspection
 print_status "Creating maintenance script..."
 cat > maintenance.sh << 'EOF'
 #!/bin/bash
 
-# Maintenance script for Vision Detection System
+# Maintenance script for Parts Defect Detection System
 
-echo "Vision Detection System Maintenance"
-echo "=================================="
+echo "Parts Defect Detection System Maintenance"
+echo "========================================="
 
 # Check system status
 echo "1. System Status:"
@@ -279,44 +392,94 @@ echo "   - Memory: $(free -h | awk 'NR==2 {print $3 "/" $2}') used"
 echo "   - Temperature: $(vcgencmd measure_temp)"
 
 # Check service status
-if systemctl is-active --quiet vision-detection; then
-    echo "   - Vision service: Running"
+if systemctl is-active --quiet parts-inspection; then
+    echo "   - Parts inspection service: Running"
 else
-    echo "   - Vision service: Stopped"
+    echo "   - Parts inspection service: Stopped"
 fi
 
 echo ""
-echo "2. Log Analysis:"
-recent_logs=$(journalctl -u vision-detection --since "1 hour ago" --no-pager -q | wc -l)
-echo "   - Log entries (last hour): $recent_logs"
+echo "2. Detection Log Analysis:"
+recent_logs=$(journalctl -u parts-inspection --since "1 hour ago" --no-pager -q | wc -l)
+echo "   - Service log entries (last hour): $recent_logs"
+
+# Check CSV files
+csv_count=$(find . -name "*.csv" -type f | wc -l)
+echo "   - CSV log files found: $csv_count"
+
+if [ -f "detection_log.csv" ]; then
+    total_inspections=$(wc -l < detection_log.csv)
+    echo "   - Total inspections logged: $((total_inspections - 1))"
+fi
 
 echo ""
-echo "3. Storage Cleanup:"
-output_files=$(find ./output -type f -mtime +7 | wc -l)
-if [ $output_files -gt 0 ]; then
-    echo "   - Old output files (>7 days): $output_files"
-    read -p "   Remove old files? (y/n): " -n 1 -r
+echo "3. Storage Management:"
+
+# Check pictures directory
+if [ -d "./pictures" ]; then
+    pic_count=$(find ./pictures -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" | wc -l)
+    echo "   - Inspection photos stored: $pic_count"
+    
+    if [ $pic_count -gt 1000 ]; then
+        echo "   - Warning: Large number of photos, consider cleanup"
+    fi
+fi
+
+# Check output directory
+if [ -d "./output" ]; then
+    output_files=$(find ./output -type f | wc -l)
+    echo "   - Output files: $output_files"
+fi
+
+# Cleanup old files
+echo ""
+echo "4. Cleanup Options:"
+read -p "   Clean up files older than 7 days? (y/n): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    # Clean old pictures
+    find ./pictures -type f -mtime +7 -delete 2>/dev/null || true
+    
+    # Clean old output files
+    find ./output -type f -mtime +7 -delete 2>/dev/null || true
+    
+    echo "   ✓ Old files cleaned up"
+fi
+
+# CSV maintenance
+if [ -f "detection_log.csv" ]; then
+    read -p "   Clean up CSV logs older than 30 days? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        find ./output -type f -mtime +7 -delete
-        echo "   ✓ Old files removed"
+        python3 -c "
+from vision_utils import CSVDataLogger
+logger = CSVDataLogger('detection_log.csv')
+logger.cleanup_old_logs(30)
+print('   ✓ CSV logs cleaned up')
+" 2>/dev/null || echo "   ⚠ Could not clean CSV logs"
     fi
-else
-    echo "   - No old files to clean"
 fi
 
 echo ""
-echo "4. Update Check:"
-cd "$(dirname "$0")"
-if git status &>/dev/null; then
-    git fetch --dry-run 2>/dev/null
-    if [ $? -eq 0 ]; then
-        echo "   - Git repository: Up to date"
-    else
-        echo "   - Git repository: Updates available"
-    fi
-else
-    echo "   - Not a git repository"
+echo "5. Quality Metrics:"
+if [ -f "detection_log.csv" ]; then
+    python3 -c "
+from vision_utils import CSVDataLogger
+import sys
+try:
+    logger = CSVDataLogger('detection_log.csv')
+    stats = logger.get_detection_statistics()
+    total_inspections = stats.get('total_detections', 0)
+    total_defects = stats.get('total_objects_found', 0)
+    defect_rate = (total_defects / total_inspections * 100) if total_inspections > 0 else 0
+    avg_time = stats.get('average_processing_time', 0)
+    print(f'   - Total inspections: {total_inspections}')
+    print(f'   - Total defects found: {total_defects}')
+    print(f'   - Defect rate: {defect_rate:.1f}%')
+    print(f'   - Average processing time: {avg_time:.3f}s')
+except Exception as e:
+    print('   - Could not analyze quality metrics')
+" 2>/dev/null || echo "   - CSV analysis not available"
 fi
 
 echo ""
@@ -333,17 +496,20 @@ echo "✓ Python virtual environment created"
 echo "✓ Python dependencies installed"
 echo "✓ Camera functionality tested"
 echo "✓ Scripts made executable"
-echo "✓ Output directory created"
-echo "✓ Configuration files generated"
+echo "✓ Project directories created"
+echo "✓ Configuration files ready"
+echo "✓ CSV data logging configured"
 echo "✓ Usage guide created (USAGE.md)"
 echo "✓ Maintenance script created (maintenance.sh)"
 echo "========================================================"
 echo ""
-echo "Next steps:"
+echo "Next steps for Parts Defect Detection:"
 echo "1. Activate virtual environment: source vision_env/bin/activate"
-echo "2. Test the system: python3 main.py --mode single"
-echo "3. Read USAGE.md for detailed instructions"
-echo "4. Edit vision_config.ini to customize settings"
+echo "2. Test single inspection: python3 main.py --mode single"
+echo "3. View CSV logs: python3 main.py --mode stats"
+echo "4. Start continuous inspection: python3 main.py --mode continuous --interval 3"
+echo "5. Read USAGE.md for detailed instructions"
+echo "6. Edit vision_config.ini to customize for your parts"
 echo ""
 
 # Check if reboot is needed
@@ -357,4 +523,4 @@ if [ -f /var/run/reboot-required ]; then
 fi
 
 deactivate 2>/dev/null || true
-print_status "Setup script finished. Happy detecting!"
+print_status "Setup complete! Ready for parts defect detection with CSV logging."

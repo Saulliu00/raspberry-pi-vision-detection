@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Object detection module for Raspberry Pi 5 vision system.
-Supports multiple detection methods: YOLO, Haar Cascades, and contour-based detection.
+Supports YOLO and Haar Cascades detection methods for parts defect detection.
 """
 
 import cv2
@@ -226,62 +226,6 @@ class ObjectDetector:
             logger.error(f"Haar cascade detection error: {e}")
             return []
     
-    def detect_objects_contour(self, image: np.ndarray,
-                             color_range: Dict = None,
-                             min_area: int = 500) -> List[Dict]:
-        """
-        Detect objects using contour detection with color filtering.
-        
-        Args:
-            image: Input image
-            color_range: Dictionary with 'lower' and 'upper' HSV color bounds
-            min_area: Minimum contour area for detection
-            
-        Returns:
-            List of detected objects with bounding boxes
-        """
-        try:
-            # Default to detect red objects if no color range specified
-            if color_range is None:
-                color_range = {
-                    'lower': np.array([0, 50, 50]),    # Lower HSV bound for red
-                    'upper': np.array([10, 255, 255])  # Upper HSV bound for red
-                }
-            
-            # Convert to HSV
-            hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-            
-            # Create mask
-            mask = cv2.inRange(hsv, color_range['lower'], color_range['upper'])
-            
-            # Apply morphological operations to clean up the mask
-            kernel = np.ones((5, 5), np.uint8)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-            
-            # Find contours
-            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
-            detections = []
-            for contour in contours:
-                area = cv2.contourArea(contour)
-                if area > min_area:
-                    x, y, w, h = cv2.boundingRect(contour)
-                    detections.append({
-                        'class': 'colored_object',
-                        'confidence': area / 10000.0,  # Use area as confidence metric
-                        'bbox': (x, y, w, h),
-                        'center': (x + w // 2, y + h // 2),
-                        'area': area
-                    })
-            
-            logger.info(f"Contour detection found {len(detections)} objects")
-            return detections
-            
-        except Exception as e:
-            logger.error(f"Contour detection error: {e}")
-            return []
-    
     def draw_detections(self, image: np.ndarray, detections: List[Dict]) -> np.ndarray:
         """
         Draw bounding boxes and labels on image.
@@ -338,26 +282,12 @@ def test_object_detection():
     
     detector = ObjectDetector()
     
-    # Create a test image (colored rectangle)
+    # Create a test image with simple patterns
     test_image = np.zeros((480, 640, 3), dtype=np.uint8)
-    cv2.rectangle(test_image, (100, 100), (200, 200), (0, 0, 255), -1)  # Red rectangle
-    cv2.rectangle(test_image, (300, 300), (400, 400), (0, 255, 0), -1)  # Green rectangle
+    cv2.rectangle(test_image, (100, 100), (200, 200), (128, 128, 128), -1)  # Gray rectangle
+    cv2.circle(test_image, (400, 300), 50, (200, 200, 200), -1)  # Gray circle
     
-    print("\n1. Testing contour-based detection...")
-    # Test contour detection for red objects
-    red_range = {
-        'lower': np.array([0, 100, 100]),
-        'upper': np.array([10, 255, 255])
-    }
-    detections = detector.detect_objects_contour(test_image, red_range, min_area=1000)
-    print(f"✓ Contour detection found {len(detections)} red objects")
-    
-    # Draw detections
-    result_image = detector.draw_detections(test_image, detections)
-    cv2.imwrite("test_contour_detection.jpg", cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR))
-    print("✓ Detection results saved to test_contour_detection.jpg")
-    
-    print("\n2. Testing Haar cascade loading...")
+    print("\n1. Testing Haar cascade loading...")
     # Test loading face cascade
     if detector.load_haar_cascade("frontalface_default"):
         print("✓ Haar cascade loaded successfully")
@@ -369,13 +299,18 @@ def test_object_detection():
     else:
         print("✗ Failed to load Haar cascade")
     
-    print("\n3. Testing YOLO model loading...")
+    print("\n2. Testing YOLO model loading...")
     if detector.load_yolo_model():
         print("✓ YOLO model loaded successfully")
         
         # Test YOLO detection
         yolo_detections = detector.detect_objects_yolo(test_image)
         print(f"✓ YOLO detection completed (found {len(yolo_detections)} objects)")
+        
+        # Draw detections
+        result_image = detector.draw_detections(test_image, yolo_detections)
+        cv2.imwrite("test_yolo_detection.jpg", cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR))
+        print("✓ Detection results saved to test_yolo_detection.jpg")
     else:
         print("✗ YOLO model loading failed (this is normal if model files aren't available)")
     

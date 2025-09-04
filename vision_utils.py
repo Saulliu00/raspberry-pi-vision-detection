@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Utility functions for the Raspberry Pi 5 vision detection system.
-Contains helper functions for file management, configuration, and image processing.
+Contains helper functions for file management, configuration, CSV data logging, and image processing.
 """
 
 import os
@@ -10,6 +10,7 @@ import time
 import logging
 import cv2
 import numpy as np
+import csv
 from typing import Dict, List, Any, Tuple, Optional
 from datetime import datetime
 import configparser
@@ -17,6 +18,233 @@ import configparser
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class CSVDataLogger:
+    """Handles CSV data logging for detection results."""
+    
+    def __init__(self, csv_file: str = "detection_log.csv"):
+        """
+        Initialize CSV data logger.
+        
+        Args:
+            csv_file: Path to CSV log file
+        """
+        self.csv_file = csv_file
+        self.fieldnames = [
+            'date',
+            'time', 
+            'capture_filename',
+            'detection_count',
+            'detected_objects',
+            'processing_time',
+            'image_resolution',
+            'detection_method'
+        ]
+        self._initialize_csv()
+    
+    def _initialize_csv(self):
+        """Initialize CSV file with headers if it doesn't exist."""
+        try:
+            if not os.path.exists(self.csv_file):
+                with open(self.csv_file, 'w', newline='') as csvfile:
+                    writer = csv.DictWriter(csvfile, fieldnames=self.fieldnames)
+                    writer.writeheader()
+                logger.info(f"Created new CSV log file: {self.csv_file}")
+            else:
+                logger.info(f"Using existing CSV log file: {self.csv_file}")
+        except Exception as e:
+            logger.error(f"Failed to initialize CSV file: {e}")
+    
+    def log_detection(self, 
+                     capture_filename: str,
+                     detections: List[Dict],
+                     processing_time: float,
+                     image_resolution: Tuple[int, int],
+                     detection_method: str = "unknown"):
+        """
+        Log detection results to CSV.
+        
+        Args:
+            capture_filename: Name of the captured image file
+            detections: List of detection results
+            processing_time: Time taken for processing in seconds
+            image_resolution: Image resolution as (width, height)
+            detection_method: Detection method used (yolo, haar, etc.)
+        """
+        try:
+            now = datetime.now()
+            
+            # Format detected objects as a readable string
+            if detections:
+                objects_summary = "; ".join([
+                    f"{det['class']}({det['confidence']:.2f})" 
+                    for det in detections
+                ])
+            else:
+                objects_summary = "No objects detected"
+            
+            # Prepare row data
+            row_data = {
+                'date': now.strftime('%Y-%m-%d'),
+                'time': now.strftime('%H:%M:%S'),
+                'capture_filename': capture_filename,
+                'detection_count': len(detections),
+                'detected_objects': objects_summary,
+                'processing_time': f"{processing_time:.3f}",
+                'image_resolution': f"{image_resolution[0]}x{image_resolution[1]}",
+                'detection_method': detection_method
+            }
+            
+            # Write to CSV
+            with open(self.csv_file, 'a', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=self.fieldnames)
+                writer.writerow(row_data)
+            
+            logger.info(f"Logged detection to CSV: {len(detections)} objects detected")
+            
+        except Exception as e:
+            logger.error(f"Failed to log to CSV: {e}")
+    
+    def get_recent_logs(self, limit: int = 10) -> List[Dict]:
+        """
+        Get recent detection logs from CSV.
+        
+        Args:
+            limit: Maximum number of recent logs to return
+            
+        Returns:
+            List of recent log entries
+        """
+        try:
+            recent_logs = []
+            
+            if os.path.exists(self.csv_file):
+                with open(self.csv_file, 'r', newline='') as csvfile:
+                    reader = csv.DictReader(csvfile)
+                    all_rows = list(reader)
+                    
+                    # Return the most recent entries (assuming CSV is chronological)
+                    recent_logs = all_rows[-limit:] if len(all_rows) > limit else all_rows
+                    recent_logs.reverse()  # Most recent first
+            
+            return recent_logs
+            
+        except Exception as e:
+            logger.error(f"Failed to read recent logs: {e}")
+            return []
+    
+    def get_detection_statistics(self) -> Dict:
+        """
+        Get statistics from the detection log.
+        
+        Returns:
+            Dictionary with detection statistics
+        """
+        try:
+            stats = {
+                'total_detections': 0,
+                'total_objects_found': 0,
+                'average_processing_time': 0,
+                'most_common_object': 'N/A',
+                'detection_methods_used': set(),
+                'date_range': {'start': None, 'end': None}
+            }
+            
+            if not os.path.exists(self.csv_file):
+                return stats
+            
+            processing_times = []
+            object_counts = {}
+            dates = []
+            
+            with open(self.csv_file, 'r', newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                
+                for row in reader:
+                    stats['total_detections'] += 1
+                    stats['total_objects_found'] += int(row.get('detection_count', 0))
+                    stats['detection_methods_used'].add(row.get('detection_method', 'unknown'))
+                    
+                    # Processing times
+                    try:
+                        proc_time = float(row.get('processing_time', 0))
+                        processing_times.append(proc_time)
+                    except:
+                        pass
+                    
+                    # Object counting
+                    objects_str = row.get('detected_objects', '')
+                    if objects_str and objects_str != "No objects detected":
+                        for obj_info in objects_str.split(';'):
+                            obj_name = obj_info.strip().split('(')[0]
+                            object_counts[obj_name] = object_counts.get(obj_name, 0) + 1
+                    
+                    # Date tracking
+                    date_str = row.get('date', '')
+                    if date_str:
+                        dates.append(date_str)
+            
+            # Calculate averages and most common
+            if processing_times:
+                stats['average_processing_time'] = sum(processing_times) / len(processing_times)
+            
+            if object_counts:
+                stats['most_common_object'] = max(object_counts, key=object_counts.get)
+            
+            if dates:
+                stats['date_range']['start'] = min(dates)
+                stats['date_range']['end'] = max(dates)
+            
+            stats['detection_methods_used'] = list(stats['detection_methods_used'])
+            
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Failed to get detection statistics: {e}")
+            return {}
+    
+    def cleanup_old_logs(self, days_to_keep: int = 30):
+        """
+        Clean up old log entries, keeping only recent days.
+        
+        Args:
+            days_to_keep: Number of days of logs to keep
+        """
+        try:
+            if not os.path.exists(self.csv_file):
+                return
+            
+            cutoff_date = datetime.now().date()
+            cutoff_date = cutoff_date.replace(day=cutoff_date.day - days_to_keep)
+            
+            temp_file = self.csv_file + '.tmp'
+            rows_kept = 0
+            
+            with open(self.csv_file, 'r', newline='') as infile, \
+                 open(temp_file, 'w', newline='') as outfile:
+                
+                reader = csv.DictReader(infile)
+                writer = csv.DictWriter(outfile, fieldnames=self.fieldnames)
+                writer.writeheader()
+                
+                for row in reader:
+                    try:
+                        row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
+                        if row_date >= cutoff_date:
+                            writer.writerow(row)
+                            rows_kept += 1
+                    except:
+                        # Keep rows with invalid dates
+                        writer.writerow(row)
+                        rows_kept += 1
+            
+            # Replace original file with cleaned version
+            os.replace(temp_file, self.csv_file)
+            logger.info(f"CSV cleanup completed: {rows_kept} rows kept")
+            
+        except Exception as e:
+            logger.error(f"Failed to cleanup CSV logs: {e}")
 
 
 class ConfigManager:
@@ -50,13 +278,13 @@ class ConfigManager:
         }
         
         self.config['DETECTION'] = {
-            'method': 'contour',  # 'yolo', 'haar', 'contour'
+            'method': 'yolo',  # 'yolo' or 'haar' (removed contour)
             'confidence_threshold': '0.5',
             'nms_threshold': '0.4',
-            'min_area': '500',
             'resize_for_detection': 'false',  # Resize image for detection performance
             'detection_width': '640',  # Width to resize to for detection (if enabled)
-            'detection_height': '480'  # Height to resize to for detection (if enabled)
+            'detection_height': '480',  # Height to resize to for detection (if enabled)
+            'haar_cascade': 'frontalface_default'  # Default Haar cascade to use
         }
         
         self.config['OUTPUT'] = {
@@ -66,13 +294,10 @@ class ConfigManager:
             'save_logs': 'true'
         }
         
-        self.config['COLORS'] = {
-            'red_lower': '0,50,50',
-            'red_upper': '10,255,255',
-            'green_lower': '40,50,50',
-            'green_upper': '80,255,255',
-            'blue_lower': '100,50,50',
-            'blue_upper': '130,255,255'
+        self.config['CSV_LOGGING'] = {
+            'enabled': 'true',
+            'csv_file': 'detection_log.csv',
+            'cleanup_days': '30'  # Days of logs to keep
         }
         
         self.save_config()
@@ -248,21 +473,6 @@ class ImageProcessor:
             return image
     
     @staticmethod
-    def create_color_mask(image: np.ndarray, 
-                         lower_bound: np.ndarray, 
-                         upper_bound: np.ndarray) -> np.ndarray:
-        """Create color-based mask for object detection."""
-        hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-        mask = cv2.inRange(hsv, lower_bound, upper_bound)
-        
-        # Clean up the mask
-        kernel = np.ones((5, 5), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        
-        return mask
-    
-    @staticmethod
     def calculate_object_properties(contour) -> Dict:
         """Calculate properties of a detected object from its contour."""
         try:
@@ -385,46 +595,6 @@ class PerformanceMonitor:
                        f"count={stats['count']}")
 
 
-class ColorPresets:
-    """Predefined color ranges for common object detection."""
-    
-    # HSV color ranges
-    RED = {
-        'lower': np.array([0, 50, 50]),
-        'upper': np.array([10, 255, 255])
-    }
-    
-    RED_WRAP = {  # For red colors that wrap around in HSV
-        'lower': np.array([170, 50, 50]),
-        'upper': np.array([180, 255, 255])
-    }
-    
-    GREEN = {
-        'lower': np.array([40, 50, 50]),
-        'upper': np.array([80, 255, 255])
-    }
-    
-    BLUE = {
-        'lower': np.array([100, 50, 50]),
-        'upper': np.array([130, 255, 255])
-    }
-    
-    YELLOW = {
-        'lower': np.array([20, 50, 50]),
-        'upper': np.array([30, 255, 255])
-    }
-    
-    ORANGE = {
-        'lower': np.array([10, 50, 50]),
-        'upper': np.array([25, 255, 255])
-    }
-    
-    @classmethod
-    def get_color_range(cls, color_name: str) -> Optional[Dict]:
-        """Get color range by name."""
-        return getattr(cls, color_name.upper(), None)
-
-
 def test_vision_utils():
     """Test function to verify utility functions."""
     print("Testing Vision Utils Module...")
@@ -432,18 +602,58 @@ def test_vision_utils():
     # Test ConfigManager
     print("\n1. Testing ConfigManager...")
     config = ConfigManager("test_config.ini")
-    print(f"✓ Camera width: {config.getint('CAMERA', 'width')}")
+    print(f"✓ Camera width: {config.get('CAMERA', 'width')}")
     print(f"✓ Detection method: {config.get('DETECTION', 'method')}")
     print(f"✓ Save images: {config.getboolean('OUTPUT', 'save_images')}")
+    print(f"✓ CSV logging enabled: {config.getboolean('CSV_LOGGING', 'enabled')}")
+    
+    # Test CSVDataLogger
+    print("\n2. Testing CSV Data Logger...")
+    csv_logger = CSVDataLogger("test_detection_log.csv")
+    
+    # Test logging some sample detections
+    sample_detections = [
+        {'class': 'defect', 'confidence': 0.95, 'bbox': (100, 100, 50, 50)},
+        {'class': 'part', 'confidence': 0.87, 'bbox': (200, 150, 60, 40)}
+    ]
+    
+    csv_logger.log_detection(
+        capture_filename="test_image_001.jpg",
+        detections=sample_detections,
+        processing_time=0.245,
+        image_resolution=(1920, 1080),
+        detection_method="yolo"
+    )
+    
+    # Log another entry with no detections
+    csv_logger.log_detection(
+        capture_filename="test_image_002.jpg", 
+        detections=[],
+        processing_time=0.123,
+        image_resolution=(1920, 1080),
+        detection_method="haar"
+    )
+    
+    print("✓ Sample detections logged to CSV")
+    
+    # Test getting recent logs
+    recent = csv_logger.get_recent_logs(5)
+    print(f"✓ Retrieved {len(recent)} recent log entries")
+    
+    # Test statistics
+    stats = csv_logger.get_detection_statistics()
+    print(f"✓ Total detections logged: {stats.get('total_detections', 0)}")
+    print(f"✓ Total objects found: {stats.get('total_objects_found', 0)}")
+    print(f"✓ Average processing time: {stats.get('average_processing_time', 0):.3f}s")
     
     # Test FileManager
-    print("\n2. Testing FileManager...")
+    print("\n3. Testing FileManager...")
     file_manager = FileManager("./test_output")
     
     # Create test image
     test_image = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
     test_detections = [
-        {'class': 'test_object', 'confidence': 0.95, 'bbox': (100, 100, 50, 50)}
+        {'class': 'test_defect', 'confidence': 0.95, 'bbox': (100, 100, 50, 50)}
     ]
     
     img_path, meta_path = file_manager.save_image_with_metadata(test_image, test_detections)
@@ -451,20 +661,14 @@ def test_vision_utils():
     print(f"✓ Saved metadata: {meta_path}")
     
     # Test ImageProcessor
-    print("\n3. Testing ImageProcessor...")
+    print("\n4. Testing ImageProcessor...")
     processor = ImageProcessor()
     
     enhanced = processor.apply_filters(test_image, "enhance")
     print(f"✓ Enhanced image shape: {enhanced.shape}")
     
-    # Test color mask
-    red_mask = processor.create_color_mask(test_image, 
-                                          ColorPresets.RED['lower'], 
-                                          ColorPresets.RED['upper'])
-    print(f"✓ Created red color mask: {red_mask.shape}")
-    
     # Test PerformanceMonitor
-    print("\n4. Testing PerformanceMonitor...")
+    print("\n5. Testing PerformanceMonitor...")
     monitor = PerformanceMonitor()
     
     monitor.start_timer("test_operation")
@@ -472,21 +676,12 @@ def test_vision_utils():
     elapsed = monitor.end_timer("test_operation")
     print(f"✓ Measured operation time: {elapsed:.3f}s")
     
-    # Test ColorPresets
-    print("\n5. Testing ColorPresets...")
-    red_range = ColorPresets.get_color_range("red")
-    if red_range:
-        print(f"✓ Red color range: {red_range['lower']} to {red_range['upper']}")
-    
-    green_range = ColorPresets.get_color_range("green")
-    if green_range:
-        print(f"✓ Green color range: {green_range['lower']} to {green_range['upper']}")
-    
     print("\nVision utils module testing completed!")
     
     # Cleanup test files
     try:
         os.remove("test_config.ini")
+        os.remove("test_detection_log.csv")
         if os.path.exists(img_path):
             os.remove(img_path)
         if os.path.exists(meta_path):

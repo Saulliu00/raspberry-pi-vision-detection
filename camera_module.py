@@ -472,7 +472,9 @@ class RaspberryPiCamera:
             logger.error(f"Image resize error: {e}")
             return image
     
-    def save_image(self, image: np.ndarray, path: str = None, prefix: str = "saved_image", 
+    
+    
+    def save_image(self, image: np.ndarray, path: str = None, prefix: str = "post", 
                   use_pictures_folder: bool = True) -> bool:
         """
         Save image to specified path or structured pictures folder.
@@ -480,7 +482,7 @@ class RaspberryPiCamera:
         Args:
             image: Image to save
             path: Specific output file path (overrides pictures folder if provided)
-            prefix: Filename prefix when using pictures folder
+            prefix: Filename prefix when using pictures folder (e.g., "post")
             use_pictures_folder: If True and no path specified, use structured pictures folder
             
         Returns:
@@ -503,7 +505,8 @@ class RaspberryPiCamera:
                 
             success = cv2.imwrite(save_path, image_bgr)
             if success:
-                logger.info(f"Image saved to {save_path}")
+                filename = os.path.basename(save_path) if use_pictures_folder else save_path
+                logger.info(f"Image saved as: {filename}")
                 return True
             else:
                 logger.error(f"Failed to save image to {save_path}")

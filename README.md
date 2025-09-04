@@ -1,40 +1,54 @@
-# Raspberry Pi 5 Vision Detection System
+# Raspberry Pi 5 Vision Detection System for Parts Defect Detection
 
-A modular, comprehensive computer vision system designed specifically for Raspberry Pi 5 with camera module. This system provides multiple object detection methods including YOLO, Haar cascades, and contour-based detection, with **# Raspberry Pi 5 Vision Detection System
+A comprehensive computer vision system designed specifically for Raspberry Pi 5 with camera module for **parts defect detection**. This system provides YOLO and Haar cascade detection methods with **automatic CSV data logging** and **full resolution capture** for maximum image quality.
 
-A modular, comprehensive computer vision system designed specifically for Raspberry Pi 5 with camera module. This system provides multiple object detection methods including YOLO, Haar cascades, and contour-based detection, with **automatic system detection** and **full resolution capture** for maximum image quality.
+## 🆕 Key Features
 
-## 🆕 New Features (v2.0)
-
-- **🔍 Auto-Detection**: Automatically detects system timezone and camera's native resolution
+- **🔍 Parts Defect Detection**: Optimized for industrial parts inspection and defect identification
+- **📊 CSV Data Logging**: Automatic logging of detection results with date, time, filename, and results
 - **📸 Full Resolution**: Uses camera's maximum resolution by default (up to 12MP on Camera Module 3)
-- **🔄 Image Rotation**: Built-in 180° rotation (configurable for different mounting orientations)
+- **🤖 Multiple Detection Methods**: YOLO and Haar cascade detection
 - **⚡ Smart Performance**: Optional detection resizing for speed while maintaining image quality
-- **🌍 Timezone Aware**: Auto-detects system timezone for accurate folder naming
+- **🌍 Timezone Aware**: Auto-detects system timezone for accurate logging
 - **📁 Structured Storage**: Organized photo storage with date-based folders
 - **🎛️ Flexible Configuration**: Easy switching between quality and performance modes
 
-## Features
+## Detection Methods
 
-- **Multiple Detection Methods**: YOLO, Haar cascades, and contour-based detection
-- **Modular Architecture**: Separate modules for easy testing and maintenance
-- **Auto-Detection**: Automatic timezone and camera resolution detection
-- **Full Resolution Support**: Maximum image quality with performance optimization options
-- **Raspberry Pi Optimized**: Uses `rpicam-still` for optimal camera performance
-- **Smart Resizing**: Optional detection resizing while preserving original quality
-- **Configurable**: Extensive configuration options through INI files
-- **Real-time Processing**: Support for continuous detection loops
-- **Performance Monitoring**: Built-in timing and performance analysis
-- **Automatic Logging**: Comprehensive logging and result storage
-- **Easy Testing**: Each module can be tested independently
+### **YOLO (You Only Look Once)**
+- **Best for**: General object detection, complex parts identification
+- **Pros**: High accuracy, can detect multiple object classes
+- **Cons**: Requires more processing power
+- **Use Case**: Complex industrial parts with various defect types
+
+### **Haar Cascades** 
+- **Best for**: Specific feature detection (faces, edges, patterns)
+- **Pros**: Fast, lightweight, works well for trained patterns
+- **Cons**: Requires specific training for each defect type
+- **Use Case**: Specific defect patterns or geometric anomalies
+
+## CSV Data Logging
+
+The system automatically logs all detection results to a CSV file with the following columns:
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| `date` | Detection date | 2024-03-15 |
+| `time` | Detection time | 14:30:22 |
+| `capture_filename` | Image filename | detection_20240315_143022_123.jpg |
+| `detection_count` | Number of objects detected | 2 |
+| `detected_objects` | Objects with confidence scores | defect(0.95); part(0.87) |
+| `processing_time` | Processing time in seconds | 0.245 |
+| `image_resolution` | Image resolution | 1920x1080 |
+| `detection_method` | Detection method used | yolo |
 
 ## System Requirements
 
 - Raspberry Pi 5 (recommended) or Raspberry Pi 4
-- Raspberry Pi Camera Module (v2 or v3)
+- Raspberry Pi Camera Module (v2 or v3) 
 - Python 3.8+
 - At least 4GB RAM (8GB recommended for YOLO)
-- 32GB+ SD card (for full resolution images)
+- 32GB+ SD card (for full resolution images and logs)
 
 ## Quick Installation
 
@@ -53,406 +67,306 @@ A modular, comprehensive computer vision system designed specifically for Raspbe
 
 ```
 vision-detection-system/
-├── camera_module.py      # Camera operations with auto-detection
-├── object_detection.py   # Object detection algorithms
-├── vision_utils.py       # Utility functions and helpers
-├── main.py              # Main system integration
-├── example_usage.py     # Comprehensive usage examples
-├── requirements.txt     # Python dependencies
-├── setup.sh            # Automated setup script
-├── maintenance.sh      # System maintenance script
-├── vision_config.ini   # Configuration file (auto-generated)
-├── pictures/           # Full resolution photos (organized by date)
-├── output/             # Detection results and metadata
-└── README.md           # This file
+├── camera_module.py         # Camera operations with auto-detection
+├── object_detection.py      # Object detection algorithms (YOLO, Haar)
+├── vision_utils.py          # Utilities and CSV data logger
+├── main.py                  # Main system integration
+├── requirements.txt         # Python dependencies
+├── setup.sh                # Automated setup script
+├── vision_config.ini       # Configuration file (auto-generated)
+├── detection_log.csv       # CSV data log (auto-generated)
+├── pictures/               # Full resolution photos (organized by date)
+├── output/                 # Detection results and metadata
+└── README.md              # This file
 ```
 
 ## 🚀 Quick Start Examples
 
-### **Basic Auto-Detection Mode**
+### **Basic Single Detection**
 ```bash
-# Uses auto-detected timezone and full camera resolution
+# Single detection with auto-logging to CSV
 python3 main.py --mode single
 ```
 
-### **High Performance Mode** 
+### **Continuous Parts Inspection**
+```bash
+# Continuous detection every 2 seconds with CSV logging
+python3 main.py --mode continuous --interval 2
+```
+
+### **High Performance Mode**
 ```bash
 # Full resolution capture, resized detection for speed
 python3 main.py --mode continuous --interval 1 --resize-detection
 ```
 
-### **Test All Features**
+### **View Detection Statistics**
 ```bash
-# Run comprehensive examples including rotation tests
-python3 example_usage.py
+# Show CSV log statistics
+python3 main.py --mode stats
 ```
 
-### **Custom Resolution**
+### **View Recent Detection Logs**
 ```bash
-# Override auto-detection for specific resolution
-python3 main.py --mode single --resolution 1080p
+# Show last 20 detection entries
+python3 main.py --mode logs
 ```
-
-## Resolution Modes
-
-### **Auto Mode (Default - Recommended)**
-- **Full Resolution**: Uses camera's native resolution (up to 4608x2592 on Camera Module 3)
-- **Best Quality**: Maximum detail for analysis and storage
-- **Auto-Detection**: Automatically detects optimal settings
-
-### **Performance Mode**  
-- **Smart Resizing**: Captures at full resolution, detects on smaller image
-- **Best of Both**: Quality preservation + detection speed
-- **Configurable**: Customize detection resolution (640x480, 1280x720, etc.)
-
-### **Compatibility Mode**
-- **Fixed Resolution**: Traditional fixed resolution (1080p, 720p, 480p)
-- **Predictable**: Consistent performance across different cameras
-- **Legacy Support**: Compatible with older systems
 
 ## Configuration Examples
 
-### **Maximum Quality with Rotation (Default)**
+### **Maximum Quality for Parts Inspection (Default)**
 ```ini
 [CAMERA]
 width = auto                    # Auto-detect native resolution
 height = auto                   # Auto-detect native resolution  
-timezone = auto                 # Auto-detect system timezone
 use_full_resolution = true      # Use camera's maximum resolution
-rotation_degrees = 180          # Rotate for upside-down mounting
+rotation_degrees = 180          # Rotate for mounting orientation
 
 [DETECTION]
+method = yolo                   # YOLO for complex defect detection
 resize_for_detection = false    # Detect on full resolution
+
+[CSV_LOGGING]
+enabled = true                  # Enable CSV data logging
+csv_file = detection_log.csv    # CSV log file name
 ```
 
-### **Balanced Performance**
+### **High Performance Mode**
 ```ini
 [CAMERA] 
-width = auto                    # Auto-detect for capture
-height = auto
 use_full_resolution = true      # Capture at full resolution
 
 [DETECTION]
+method = yolo                   # YOLO detection
 resize_for_detection = true     # Resize for detection speed
 detection_width = 640           # Detection resolution
 detection_height = 480
+
+[CSV_LOGGING]
+enabled = true                  # Keep CSV logging enabled
 ```
 
-### **High Speed Mode**
+### **Haar Cascade for Specific Defects**
 ```ini
-[CAMERA]
-width = 1280                    # Fixed resolution
-height = 720
-use_full_resolution = false
+[DETECTION]
+method = haar                   # Use Haar cascade detection
+haar_cascade = frontalface_default  # Or custom trained cascade
 
-[DETECTION] 
-resize_for_detection = false    # No additional resizing needed
+[CSV_LOGGING]
+enabled = true
+csv_file = parts_inspection_log.csv
 ```
 
 ## Usage Examples
 
-### **Basic Usage with Auto-Detection**
-```python
-from camera_module import RaspberryPiCamera
-
-# Initialize with full auto-detection
-camera = RaspberryPiCamera()  # Timezone and resolution auto-detected
-
-# Capture at full resolution  
-image = camera.capture_image_rpicam(
-    save_to_pictures=True,
-    prefix="detection",
-    use_full_resolution=True  # Default
-)
-
-print(f"Captured: {image.shape[1]}x{image.shape[0]} pixels")
-print(f"Timezone: {camera.timezone}")
-```
-
-### **Performance Optimized Detection with Rotation**
+### **Basic Parts Inspection**
 ```python
 from camera_module import RaspberryPiCamera
 from object_detection import ObjectDetector
+from vision_utils import CSVDataLogger
 
-camera = RaspberryPiCamera()
+# Initialize components
+camera = RaspberryPiCamera()  # Auto-detect settings
 detector = ObjectDetector()
+csv_logger = CSVDataLogger("parts_inspection.csv")
 
-# Capture full resolution
-full_image = camera.capture_image_rpicam(use_full_resolution=True)
+# Load YOLO model
+detector.load_yolo_model()
 
-# Apply rotation and preprocessing  
-corrected_image = camera.preprocess_image(full_image, rotate_degrees=180)
+# Capture and detect
+image = camera.capture_image_rpicam(save_to_pictures=True, prefix="parts_check")
+detections = detector.detect_objects_yolo(image)
 
-# Resize for fast detection
-detection_image = camera.resize_image(corrected_image, (640, 480))
+# Log results
+csv_logger.log_detection(
+    capture_filename="parts_check_001.jpg",
+    detections=detections,
+    processing_time=0.245,
+    image_resolution=(image.shape[1], image.shape[0]),
+    detection_method="yolo"
+)
 
-# Detect on small image
-detections = detector.detect_objects_contour(detection_image, ColorPresets.RED)
-
-# Scale coordinates back to full resolution
-scale_x = corrected_image.shape[1] / detection_image.shape[1]
-for detection in detections:
-    x, y, w, h = detection['bbox']
-    detection['bbox'] = (int(x * scale_x), int(y * scale_y), 
-                        int(w * scale_x), int(h * scale_y))
-
-# Draw on full resolution image
-result = detector.draw_detections(corrected_image, detections)
-``` (default)
-    "left_side": 90,    # Camera rotated left
-    "right_side": 270   # Camera rotated right
-}
-
-# Capture and correct orientation
-image = camera.capture_image_rpicam(use_full_resolution=True)
-corrected = camera.preprocess_image(image, rotate_degrees=mounting_options["upside_down"])
+print(f"Found {len(detections)} objects/defects")
 ```
 
-### **Command Line Options**
+### **Command Line Usage**
 
 ```bash
-# Auto-detection with full resolution (default)
-python3 main.py --mode single
+# YOLO detection with full resolution
+python3 main.py --mode single --method yolo
 
-# Continuous detection with performance optimization  
-python3 main.py --mode continuous --interval 2 --resize-detection
+# Haar cascade detection for specific patterns  
+python3 main.py --mode single --method haar
 
-# Override resolution
-python3 main.py --mode single --resolution 1080p
+# Continuous inspection every 5 seconds
+python3 main.py --mode continuous --interval 5 --method yolo
 
-# Specific detection method with color
-python3 main.py --mode single --method contour --color red
+# Performance mode with detection resizing
+python3 main.py --mode continuous --resize-detection --interval 1
 
-# High performance continuous mode
-python3 main.py --mode continuous --interval 0.5 --resolution 720p --resize-detection
+# Custom CSV file and disable for testing
+python3 main.py --mode single --csv-file test_run.csv
+python3 main.py --mode single --disable-csv
+
+# View system statistics
+python3 main.py --mode stats
+
+# View recent detection logs
+python3 main.py --mode logs
 ```
 
-## Image Quality Comparison
+## CSV Data Analysis
 
-| Mode | Capture Resolution | Detection Resolution | Quality | Speed | Storage |
-|------|-------------------|---------------------|---------|-------|---------|
-| **Auto Full** | 4608x2592 | 4608x2592 | ⭐⭐⭐⭐⭐ | ⭐⭐ | High |
-| **Auto Balanced** | 4608x2592 | 640x480 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | High |
-| **1080p** | 1920x1080 | 1920x1080 | ⭐⭐⭐⭐ | ⭐⭐⭐ | Medium |
-| **720p** | 1280x720 | 1280x720 | ⭐⭐⭐ | ⭐⭐⭐⭐ | Low |
-
-## Photo Management
-
-### **Automatic Organization**
-```
-pictures/
-├── 2024-03-15_PST/           # Date + Timezone
-│   ├── detection_20240315_143022_123.jpg
-│   ├── detection_20240315_143025_456.jpg
-│   └── surveillance_20240315_150000_789.jpg
-├── 2024-03-16_PST/
-│   └── detection_20240316_090000_012.jpg
-└── 2024-03-17_UTC/           # Timezone changes reflected
-    └── detection_20240317_120000_345.jpg
+### **View Statistics**
+```bash
+python3 main.py --mode stats
 ```
 
-### **Photo Management Tools**
+Output:
+```
+--- CSV Log Statistics ---
+Total detections: 150
+Total objects found: 45
+Average processing time: 0.234s
+Most common object: defect
+Detection methods used: yolo, haar
+Date range: 2024-03-10 to 2024-03-15
+```
+
+### **View Recent Logs**
+```bash
+python3 main.py --mode logs
+```
+
+### **Programmatic CSV Analysis**
 ```python
-# Get photo collection info
-info = camera.get_pictures_info()
-print(f"Total photos: {info['total_images']}")
-print(f"Storage folders: {len(info['existing_date_folders'])}")
+from vision_utils import CSVDataLogger
 
-# Cleanup old photos
-removed = camera.cleanup_old_pictures(days_to_keep=30)
-print(f"Cleaned up {removed} old photos")
+logger = CSVDataLogger("detection_log.csv")
+
+# Get recent detections
+recent = logger.get_recent_logs(10)
+for log in recent:
+    print(f"{log['date']} {log['time']}: {log['detection_count']} objects")
+
+# Get statistics
+stats = logger.get_detection_statistics()
+print(f"Total defects found: {stats['total_objects_found']}")
+print(f"Average detection time: {stats['average_processing_time']:.3f}s")
 ```
 
 ## Performance Optimization
 
 ### **For Maximum Quality**
-- Use `use_full_resolution=true` in config
-- Disable `resize_for_detection`
-- Use contour detection for real-time applications
+- Use `method = yolo` with `use_full_resolution = true`
+- Disable `resize_for_detection` 
 - Ensure good lighting conditions
+- Use Raspberry Pi 5 8GB for best performance
 
-### **For Maximum Speed** 
-- Enable `resize_for_detection=true`
-- Set detection resolution to 640x480 or lower
-- Use YOLO only when necessary
-- Consider fixed resolution modes
+### **For Maximum Speed**
+- Enable `resize_for_detection = true`
+- Set detection resolution to 640x480
+- Use `method = haar` for specific defects
+- Consider `method = yolo` with resizing for general detection
 
-### **For Balanced Performance**
-- Use auto-detection with `resize_for_detection=true`
-- Detection resolution: 1280x720 or 640x480
-- Full resolution capture for storage
-- Monitor performance with built-in timing
+### **For Continuous Inspection**
+- Use performance mode with 1-2 second intervals
+- Enable CSV logging for quality tracking
+- Monitor disk space for images and logs
+- Set up log cleanup with `cleanup_days`
 
-## Hardware Recommendations
+## Detection Method Comparison
 
-### **For Full Resolution (4608x2592)**
-- **Raspberry Pi 5 8GB**: Required for comfortable operation
-- **High-speed SD card**: Class 10 U3 or better
-- **Active cooling**: Essential for continuous operation
-- **Camera Module 3**: Latest 12MP sensor
-
-### **For High Performance**
-- **Raspberry Pi 5 4GB**: Sufficient for optimized modes
-- **Good SD card**: Class 10 minimum
-- **Camera Module 2/3**: Both work well
-
-## Detection Methods Comparison
-
-| Method | Speed | Accuracy | Use Case | Full Res Support |
-|--------|-------|----------|----------|-----------------|
-| **Contour** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | Colored objects | ✅ Excellent |
-| **Haar** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | Faces, features | ✅ Good |
-| **YOLO** | ⭐⭐ | ⭐⭐⭐⭐⭐ | General objects | ⚠️ Requires resize |
+| Method | Speed | Accuracy | Best Use Case | Training Required |
+|--------|-------|----------|---------------|-------------------|
+| **YOLO** | ⭐⭐ | ⭐⭐⭐⭐⭐ | Complex defects, multiple object types | Pre-trained available |
+| **Haar** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | Specific patterns, geometric defects | Yes, for custom defects |
 
 ## Troubleshooting
 
-### **Auto-Detection Issues**
+### **Camera Issues**
 ```bash
-# Check detected settings
-python3 camera_module.py
+# Test camera
+rpicam-still --list-cameras
+rpicam-still --timeout 1000 --output test.jpg
 
-# Override if needed
-python3 main.py --resolution 1080p --mode single
+# Check camera connection
+python3 camera_module.py
+```
+
+### **Detection Issues**
+```bash
+# Test object detection
+python3 object_detection.py
+
+# Check YOLO model files
+ls -la *.weights *.cfg *.names
+```
+
+### **CSV Logging Issues**
+```bash
+# Check CSV file
+head -n 5 detection_log.csv
+
+# Test CSV logging
+python3 -c "from vision_utils import CSVDataLogger; CSVDataLogger('test.csv')"
 ```
 
 ### **Performance Issues**
+- **High memory usage**: Enable `resize_for_detection`
+- **Slow detection**: Use Haar cascades or reduce resolution
+- **Storage full**: Enable log cleanup or reduce image resolution
+
+## Advanced Features
+
+### **Custom YOLO Models**
+Train custom YOLO models for specific defect types:
+1. Collect defect images
+2. Label with tools like LabelImg
+3. Train custom YOLO model
+4. Replace model files in system
+
+### **Custom Haar Cascades**  
+Train Haar cascades for specific defect patterns:
+1. Collect positive/negative samples
+2. Use OpenCV training tools
+3. Load custom cascade in configuration
+
+### **Integration with Quality Systems**
+```python
+# Export CSV data for quality analysis
+import pandas as pd
+
+df = pd.read_csv('detection_log.csv')
+daily_defects = df.groupby('date')['detection_count'].sum()
+print("Daily defect counts:")
+print(daily_defects)
+```
+
+## System Monitoring
+
+### **Service Management** (if systemd service installed)
 ```bash
-# Enable detection resizing
-python3 main.py --mode continuous --resize-detection
+# Start continuous inspection service
+sudo systemctl start vision-detection
 
-# Use lower resolution
-python3 main.py --resolution 720p --mode continuous
+# Check service status
+sudo systemctl status vision-detection
+
+# View live logs
+journalctl -u vision-detection -f
+
+# Stop service
+sudo systemctl stop vision-detection
 ```
 
-### **Storage Issues**
-```python
-# Check storage usage including rotated images
-from camera_module import RaspberryPiCamera
-camera = RaspberryPiCamera()
-info = camera.get_pictures_info()
-print(f"Total photos: {info['total_images']}")
-
-# Cleanup old files (including rotated variants)
-removed = camera.cleanup_old_pictures(days_to_keep=7)
-```
-
-### **Mounting Orientation Problems**
+### **Maintenance**
 ```bash
-# Test all mounting orientations quickly
-python3 example_usage.py  # Runs rotation examples
+# Run maintenance script
+./maintenance.sh
 
-# Or test specific orientation
-python3 main.py --mode single --rotation 90 --verbose
-```
-
-### **Common Rotation Fixes**
-
-| Problem | Solution | Command |
-|---------|----------|---------|
-| **Image upside down** | Use 180° rotation | `--rotation 180` |
-| **Image sideways (left)** | Use 270° rotation | `--rotation 270` |  
-| **Image sideways (right)** | Use 90° rotation | `--rotation 90` |
-| **Custom mounting angle** | Use specific degree | `--rotation 45` |
-
-## Advanced Configuration
-
-### **Advanced Configuration**
-
-### **Custom Timezone with Rotation**
-```ini
-[CAMERA]
-timezone = America/New_York  # Override auto-detection
-rotation_degrees = 90        # Side-mounted camera
-```
-
-### **Performance Tuning with Rotation**
-```ini
-[CAMERA]
-use_full_resolution = true   # Quality
-timeout = 2000              # Faster capture
-rotation_degrees = 180      # Upside-down mounting
-
-[DETECTION]  
-resize_for_detection = true  # Speed
-detection_width = 640       # Performance
-```
-
-## Rotation Feature Details
-
-### **Supported Rotation Angles**
-
-- **0°**: No rotation (normal orientation)
-- **90°**: Counter-clockwise rotation (left side mounting)
-- **180°**: Upside-down correction (default for inverted mounting)
-- **270°**: Clockwise rotation (right side mounting)
-- **Custom**: Any angle (e.g., 45°, 135°) with automatic dimension adjustment
-
-### **Performance Impact**
-
-| Rotation | Processing Time | Notes |
-|----------|----------------|-------|
-| **0°** | Fastest | No processing needed |
-| **90°, 180°, 270°** | Very Fast | Optimized OpenCV operations |
-| **Custom angles** | Moderate | General rotation with dimension calculation |
-
-### **Automatic Dimension Handling**
-
-```python
-# Original image: 4608x2592
-original = camera.capture_image_rpicam()
-
-# 0° rotation: 4608x2592 (no change)  
-rotated_0 = camera.preprocess_image(original, rotate_degrees=0)
-
-# 90° rotation: 2592x4608 (dimensions swapped)
-rotated_90 = camera.preprocess_image(original, rotate_degrees=90)
-
-# 180° rotation: 4608x2592 (dimensions preserved)
-rotated_180 = camera.preprocess_image(original, rotate_degrees=180)
-
-# 45° custom: Larger canvas to prevent cropping
-rotated_45 = camera.preprocess_image(original, rotate_degrees=45)
-```
-
-## API Integration
-
-```python
-# Initialize with auto-detection and apply rotation
-camera = RaspberryPiCamera()
-
-# Full resolution capture with rotation
-image = camera.capture_image_rpicam(use_full_resolution=True)
-corrected_image = camera.preprocess_image(image, rotate_degrees=180)
-
-# Performance optimized detection  
-detection_img = camera.resize_image(corrected_image, (640, 480))
-detections = detector.detect_objects_contour(detection_img)
-
-# Scale results back to full resolution
-scale_factor = corrected_image.shape[1] / detection_img.shape[1]
-for detection in detections:
-    # Scale bounding box coordinates
-    pass
-
-# Save full resolution result with rotation applied
-camera.save_image(corrected_image, prefix="detection_result")
-```
-
-## Troubleshooting
-
-### **Rotation Issues**
-```python
-# Test different rotations to find correct orientation
-from camera_module import RaspberryPiCamera
-
-camera = RaspberryPiCamera()
-image = camera.capture_image_rpicam()
-
-# Test all standard rotations
-for angle in [0, 90, 180, 270]:
-    rotated = camera.preprocess_image(image, rotate_degrees=angle)
-    camera.save_image(rotated, prefix=f"test_rotation_{angle}deg")
-    print(f"Saved test image with {angle}° rotation")
+# Manual cleanup
+python3 -c "from vision_utils import CSVDataLogger; CSVDataLogger().cleanup_old_logs(7)"
 ```
 
 ## License
@@ -461,4 +375,4 @@ This project is open source and available under the MIT License.
 
 ---
 
-**🎯 Now with Auto-Detection and Full Resolution Support! 📸**
+**🔧 Now optimized for industrial parts defect detection with comprehensive CSV data logging! 📊**

@@ -19,9 +19,8 @@ import configparser
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 class CSVDataLogger:
-    """Handles CSV data logging for detection results."""
+    """Handles CSV data logging for detection results with post filename support."""
     
     def __init__(self, csv_file: str = "detection_log.csv"):
         """
@@ -35,6 +34,7 @@ class CSVDataLogger:
             'date',
             'time', 
             'capture_filename',
+            'post_filename',
             'detection_count',
             'detected_objects',
             'processing_time',
@@ -58,6 +58,7 @@ class CSVDataLogger:
     
     def log_detection(self, 
                      capture_filename: str,
+                     post_filename: str,
                      detections: List[Dict],
                      processing_time: float,
                      image_resolution: Tuple[int, int],
@@ -66,7 +67,8 @@ class CSVDataLogger:
         Log detection results to CSV.
         
         Args:
-            capture_filename: Name of the captured image file
+            capture_filename: Name of the captured raw image file
+            post_filename: Name of the processed image file
             detections: List of detection results
             processing_time: Time taken for processing in seconds
             image_resolution: Image resolution as (width, height)
@@ -89,6 +91,7 @@ class CSVDataLogger:
                 'date': now.strftime('%Y-%m-%d'),
                 'time': now.strftime('%H:%M:%S'),
                 'capture_filename': capture_filename,
+                'post_filename': post_filename,
                 'detection_count': len(detections),
                 'detected_objects': objects_summary,
                 'processing_time': f"{processing_time:.3f}",
@@ -215,8 +218,8 @@ class CSVDataLogger:
             if not os.path.exists(self.csv_file):
                 return
             
-            cutoff_date = datetime.now().date()
-            cutoff_date = cutoff_date.replace(day=cutoff_date.day - days_to_keep)
+            from datetime import timedelta
+            cutoff_date = datetime.now().date() - timedelta(days=days_to_keep)
             
             temp_file = self.csv_file + '.tmp'
             rows_kept = 0
@@ -245,7 +248,6 @@ class CSVDataLogger:
             
         except Exception as e:
             logger.error(f"Failed to cleanup CSV logs: {e}")
-
 
 class ConfigManager:
     """Handles configuration file management."""

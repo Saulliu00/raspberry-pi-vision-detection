@@ -131,15 +131,13 @@ class VisionSystem:
                     timeout=camera_timeout,
                     save_to_pictures=save_pictures,
                     prefix="raw",                  # RAW naming
-                    use_full_resolution=self.use_full_resolution,
-                    use_index=True                  # include index in filename
+                    use_full_resolution=self.use_full_resolution
                 )
             else:
                 raw_image = self.camera.capture_image_opencv(
                     save_to_pictures=save_pictures,
                     prefix="raw",                  # RAW naming
-                    use_full_resolution=self.use_full_resolution,
-                    use_index=True
+                    use_full_resolution=self.use_full_resolution
                 )
 
             self.performance_monitor.end_timer("image_capture")
@@ -387,7 +385,7 @@ class VisionSystem:
             save_path = os.path.join(date_folder, filename)
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
-            # Convert RGB->BGR if needed
+            # Convert RGB back to BGR for saving with OpenCV
             if len(image.shape) == 3:
                 image_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             else:

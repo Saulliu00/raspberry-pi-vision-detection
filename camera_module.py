@@ -515,6 +515,52 @@ class RaspberryPiCamera:
             logger.error(f"Image save error: {e}")
             return False
     
+    def save_image_to_output(self, image: np.ndarray, output_directory: str = "./output", 
+                       prefix: str = "post", extension: str = ".jpg") -> Tuple[bool, str]:
+        """
+        Save image directly to output folder with timestamp naming.
+        
+        Args:
+            image: Image to save
+            output_directory: Output directory path
+            prefix: Filename prefix (e.g., "post" for processed images)
+            extension: File extension
+            
+        Returns:
+            Tuple of (success, filename)
+        """
+        try:
+            # Ensure output directory exists
+            os.makedirs(output_directory, exist_ok=True)
+            
+            # Generate timestamp-based filename
+            now = datetime.now(self.tz)
+            timestamp = now.strftime("%Y%m%d_%H%M%S_%f")[:-3]  # Remove last 3 digits of microseconds
+            filename = f"{prefix}_{timestamp}{extension}"
+            save_path = os.path.join(output_directory, filename)
+            
+            # Convert RGB back to BGR for saving with OpenCV if needed
+            if len(image.shape) == 3:
+                # Check if image is already in BGR format (from OpenCV capture)
+                # or needs conversion from RGB (from preprocessing)
+                # We'll assume preprocessing returns RGB, so convert to BGR
+                image_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            else:
+                image_bgr = image
+            
+            success = cv2.imwrite(save_path, image_bgr)
+            if success:
+                logger.info(f"Image saved to output: {filename}")
+                return True, filename
+            else:
+                logger.error(f"Failed to save image to output: {filename}")
+                return False, filename
+                
+        except Exception as e:
+            logger.error(f"Output image save error: {e}")
+            return False, "save_error.jpg"
+    
+    
     def get_pictures_info(self) -> dict:
         """
         Get information about the pictures directory structure.
